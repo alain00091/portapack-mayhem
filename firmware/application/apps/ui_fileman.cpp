@@ -92,10 +92,11 @@ FileManBaseView::FileManBaseView(
 ) : nav_ (nav),
 	extension_filter { filter }
 {
+				if (!sdcIsCardInserted(&SDCD1)) {ferror = NO_SD ;}								
 	load_directory_contents(current_path);
 	
 	if (!entry_list.size())
-		empty_root = true;
+				if ((ferror != NO_SD) && (current_path.string() == "") ) { ferror = NO_FILE;}
 	
 	add_children({
 		&labels,
@@ -114,12 +115,12 @@ FileManBaseView::FileManBaseView(
 };
 
 void FileManBaseView::focus() {
-	if (empty_root) {
-		button_exit.focus();
-		nav_.display_modal("Error", "No files in root.", ABORT, nullptr);
-	} else {
-		menu_view.focus();
-	}
+	if (ferror == NO_SD) 		{button_exit.focus();}
+	
+	  else {
+	if ( ferror == NO_FILE) 	{	button_exit.focus();}
+	 else menu_view.focus();
+	  }
 }
 
 void FileManBaseView::refresh_list() {
@@ -271,6 +272,7 @@ FileManagerView::FileManagerView(
 	NavigationView& nav
 ) : FileManBaseView(nav, "")
 {
+	if (ferror == NO_FERROR)   {						 
 	on_refresh_widgets = [this](bool v) {
 		refresh_widgets(v);
 	};
@@ -322,6 +324,13 @@ FileManagerView::FileManagerView(
 			}
 		);
 	};
-}
+	
+	}
+else {
+		if (ferror == NO_FILE) {		nav_.display_modal("Error", "\n    NO files on SD CARD ! ", ABORT, nullptr);  	}
+		if (ferror == NO_SD)   { 		nav_.display_modal("Error", "\n        NO SD CARD !", ABORT, nullptr); 			} 
+	}		
 
+
+}
 }

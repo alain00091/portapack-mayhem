@@ -29,6 +29,12 @@
 #include "ui_textentry.hpp"
 
 namespace ui {
+	enum fileman_error {
+	NO_FERROR = 0,
+	NO_SD,
+	NO_FILE
+};
+				
 
 struct fileman_entry {
 	std::filesystem::path entry_path { };
@@ -54,6 +60,7 @@ protected:
 	NavigationView& nav_;
 	
 	static constexpr size_t max_filename_length = 30 - 2;
+		fileman_error ferror { NO_FERROR };							
 	
 	const std::string suffix[5] = { "B", "kB", "MB", "GB", "??" };
 	
@@ -73,7 +80,7 @@ protected:
 		{ "", &bitmap_icon_file, ui::Color::light_grey() }
 	};
 	
-	bool empty_root { false };
+
 	std::function<void(void)> on_select_entry { nullptr };
 	std::function<void(bool)> on_refresh_widgets { nullptr };
 	std::vector<fileman_entry> entry_list { };

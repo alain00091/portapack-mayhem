@@ -28,12 +28,14 @@
 using namespace portapack;
 
 namespace ui {
-
-void FileManBaseView::load_directory_contents(const std::filesystem::path& dir_path) {
-	current_path = dir_path;
 	
+	
+void FileManBaseView::load_directory_contents(const std::filesystem::path& dir_path) { 
+	
+	if (sdcIsCardInserted(&SDCD1)) {
+	
+	current_path = dir_path;
 	text_current.set(dir_path.string().length()? dir_path.string().substr(0, 30 - 6):"(sd root)");
-
 	entry_list.clear();
 	
 	auto filtering = (bool)extension_filter.size();
@@ -51,33 +53,34 @@ void FileManBaseView::load_directory_contents(const std::filesystem::path& dir_p
 				
 					for (auto &c: entry_extension)
 						c = toupper(c);
-					
 					if (entry_extension != extension_filter)
 						matched = false;
 				}
-				
 				if (matched)
-					entry_list.push_back({ entry.path(), (uint32_t)entry.size(), false });
+				{	
+						entry_list.push_back({ entry.path(), (uint32_t)entry.size(), false });
+				}
 			}
 		} else if (std::filesystem::is_directory(entry.status())) {
 			entry_list.insert(entry_list.begin(), { entry.path(), 0, true });
 		}
 	}
+	if (!entry_list.size()) 	ferror = NO_FILE;
+	}
+	else ferror = NO_SD ;
 }
 
 std::filesystem::path FileManBaseView::get_selected_path() {
-	auto selected_path_str = current_path.string();
+	auto selected_path_str = current_path.string();	
+
 	auto entry_path = entry_list[menu_view.highlighted_index()].entry_path.string();
-	
 	if (entry_path == "..") {
 		selected_path_str = get_parent_dir().string();
 	} else {
 		if (selected_path_str.back() != '/')
 			selected_path_str += '/';
-		
 		selected_path_str += entry_path;
 	}
-	
 	return selected_path_str;
 }
 
@@ -93,16 +96,14 @@ FileManBaseView::FileManBaseView(
 	extension_filter { filter }
 {
 	load_directory_contents(current_path);
-	
-	if (!entry_list.size())
-		empty_root = true;
-	
+
 	add_children({
 		&labels,
 		&text_current,
-		&button_exit
+		&button_exit,
+		&text_AD
 	});
-
+	
 	menu_view.on_left = [&nav, this]() {
 		load_directory_contents(get_parent_dir());
 		refresh_list();
@@ -113,16 +114,20 @@ FileManBaseView::FileManBaseView(
 	};
 };
 
+
 void FileManBaseView::focus() {
-	if (empty_root) {
-		button_exit.focus();
-		nav_.display_modal("Error", "No files in root.", ABORT, nullptr);
-	} else {
-		menu_view.focus();
-	}
+	button_exit.focus();
+	
+switch (ferror) 	{
+				case NO_FILE:	nav_.display_modal("Error", "\n   NO files on SD CARD ! ", ABORT, nullptr);  	break ;
+				case NO_SD: 	nav_.display_modal("Error", "\n       NO SD CARD !", ABORT, nullptr);; 	break ;
+				case NO_FERROR:    	menu_view.focus(); 																
+					}
 }
 
+
 void FileManBaseView::refresh_list() {
+
 	if (on_refresh_widgets)
 		on_refresh_widgets(false);
 
@@ -181,7 +186,6 @@ void FileManBaseView::refresh_list() {
 			
 		}
 	}
-	
 	menu_view.set_highlighted(0);	// Refresh
 }
 
@@ -215,8 +219,9 @@ void FileLoadView::refresh_widgets(const bool v) {
 FileLoadView::FileLoadView(
 	NavigationView& nav,
 	std::string filter
+	
 ) : FileManBaseView(nav, filter)
-{
+{	
 	on_refresh_widgets = [this](bool v) {
 		refresh_widgets(v);
 	};
@@ -243,14 +248,21 @@ FileLoadView::FileLoadView(
 }
 
 void FileManagerView::on_rename(NavigationView& nav) {
+
 	text_prompt(nav, name_buffer, max_filename_length, [this](std::string& buffer) {
+		
+		//  buffer 
+		// To fix a bug
+		buffer = current_path.string() + "/" +  buffer;
 		rename_file(get_selected_path(), buffer);
+		
 		load_directory_contents(current_path);
 		refresh_list();
 	});
 }
 
 void FileManagerView::on_delete() {
+	
 	delete_file(get_selected_path());
 	load_directory_contents(current_path);
 	refresh_list();
@@ -270,10 +282,9 @@ FileManagerView::~FileManagerView() {
 FileManagerView::FileManagerView(
 	NavigationView& nav
 ) : FileManBaseView(nav, "")
+
 {
-	on_refresh_widgets = [this](bool v) {
-		refresh_widgets(v);
-	};
+		refresh_list();
 	
 	add_children({
 		&menu_view,
@@ -281,16 +292,21 @@ FileManagerView::FileManagerView(
 		&text_date,
 		&button_rename,
 		&button_new_dir,
-		&button_delete
-	});
-	
-	menu_view.on_highlight = [this]() {
+		&button_delete,
+			});	 
+			
+		on_refresh_widgets = [this](bool v) {
+		refresh_widgets(v);
+	};
+ 
+	menu_view.on_highlight = [this]() {		
 		text_date.set(to_string_FAT_timestamp(file_created_date(get_selected_path())));
 	};
 	
-	refresh_list();
+	
 	
 	on_select_entry = [this]() {
+
 		if (entry_list[menu_view.highlighted_index()].is_directory) {
 			load_directory_contents(get_selected_path());
 			refresh_list();
@@ -322,6 +338,9 @@ FileManagerView::FileManagerView(
 			}
 		);
 	};
+
+
 }
+
 
 }
